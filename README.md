@@ -8,7 +8,7 @@ The primary issue is that the entire server is restarted upon update, rendering 
 
 Before we consider the mechanics of reloading module code, let's first consider the overall system architecture that must be supported.
 
--   1-n AP2 Servers (e.g., physical machine, VM, container, etc.)
+-   1-n Servers (e.g., physical machine, VM, container, etc.)
 
     The system consists of 1 or more independent servers running the same code to handle incoming HTTP requests
 
@@ -30,11 +30,11 @@ In order to update module code at runtime, there are several discrete steps that
 1.  Reload the modules within each child process
 1.  [Optional] Notify the original trigger that each child process is updated
 
-The current approach appears to assume only a single AP2 server, rendering Step 1 moot. Step 2 (update), as described below, is relatively straightforward. Step 4 (reload) is currently achieved by terminating the master process, thus negating the need for Step 3 (process notification).
+The current approach appears to assume only a single server, rendering Step 1 moot. Step 2 (update), as described below, is relatively straightforward. Step 4 (reload) is currently achieved by terminating the master process, thus negating the need for Step 3 (process notification).
 
 ### 1. Trigger Options
 
-An update is initiated by an API call to a running server. This call may be made as a standalone HTTP request or, more generally, through the AP2 UI. The incoming HTTP request is handled by a single child process on a single server. This child process must then notify all servers to perform the update. How should this notification be propagated through the system?
+An update is initiated by an API call to a running server. This call may be made as a standalone HTTP request or, more generally, through the UI. The incoming HTTP request is handled by a single child process on a single server. This child process must then notify all servers to perform the update. How should this notification be propagated through the system?
 
 #### Cluster Registration
 
