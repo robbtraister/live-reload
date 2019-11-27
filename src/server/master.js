@@ -57,15 +57,15 @@ const messageHandler = proc => async msg => {
   if (type) {
     switch (type) {
       case 'restart':
-        setupClusterListeners()
-        debug('master event handlers updated')
-
         // capture an array of pre-existing cluster workers
         const oldWorkers = Object.values(cluster.workers)
 
+        // clear cache of this script in case it has changed
+        delete require.cache[__filename]
+
         // create new cluster workers with updated code
         // await will ensure that all new workers are listening before continuing
-        await createWorkers()
+        await start()
 
         // terminate all pre-existing workers
         oldWorkers.forEach(terminateWorker)
@@ -98,10 +98,9 @@ const messageHandler = proc => async msg => {
   }
 }
 
-function setupClusterListeners () {
-  delete require.cache[__filename]
+async function start () {
+  const { createWorkers, messageHandler } = require(__filename)
 
-  const { messageHandler } = require(__filename)
   cluster.removeAllListeners('message')
   cluster.on('message', (worker, msg) => {
     messageHandler(worker)(msg)
@@ -111,12 +110,10 @@ function setupClusterListeners () {
   cluster.on('exit', (worker, code, signal) => {
     debug(`[PID:${worker.process.pid}] Exited`)
   })
+
+  return createWorkers()
 }
 
-function main () {
-  setupClusterListeners()
-  createWorkers()
-}
-
-module.exports = main
+module.exports = start
+module.exports.createWorkers = createWorkers
 module.exports.messageHandler = messageHandler
