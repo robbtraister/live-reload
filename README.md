@@ -36,6 +36,10 @@ The current approach appears to assume only a single server, rendering Step 1 mo
 
 An update is initiated by an API call to a running server. This call may be made as a standalone HTTP request or, more generally, through the UI. The incoming HTTP request is handled by a single child process on a single server. This child process must then notify all servers to perform the update. How should this notification be propagated through the system?
 
+1.  [Cluster Registration](#cluster-registration)
+1.  [Messaging](#messaging)
+1.  [__DB Polling__](#db-polling)
+
 #### Cluster Registration
 
 Each running server may register with a central registration service that keeps a ledger of all running servers. The child process triggering the update may either send a notification to the registration service to forward on to each service, or may query for a list of running servers and send the notification directly.
@@ -48,6 +52,19 @@ Each running server may register with a central registration service that keeps 
 ##### Cons
 
 -   Requires a registration service
+
+#### Messaging
+
+If we only need to support a single server, the triggering mechanism can be implemented using the cluster messaging protocol (see [3. Notify Options](#3-notify-options) below), or skipped altogether.
+
+##### Pros
+
+-   Simple implementation
+-   Fast execution
+
+##### Cons
+
+-   Only viable for a single server
 
 #### DB Polling
 
@@ -62,10 +79,6 @@ Since a shared, central database already exists for the system, implementing the
 -   Delayed execution
 -   No way to know if/when each server has seen or acknowledged the update trigger
 
-#### Messaging
-
-If we only need to support a single server, the triggering mechanism can be implemented using the cluster messaging protocol (see [3. Notify Options](#3-notify-options) below), or skipped altogether.
-
 ### 2. Update
 
 Once alerted that an update is required, the first step in updating the running modules is to actually fetch and replace the source code on the server. This is generally done via execution of `npm install` on the local machine.
@@ -74,7 +87,23 @@ Once alerted that an update is required, the first step in updating the running 
 
 Once the module has been updated, each child process must be alerted that a reload is required. Much like the initial trigger, this alert can be configured as either a push or a pull. However, unlike with distributed servers, the master process keeps a list of its child processes and does not need a separate registration service.
 
-__*Note: This notify step is only necessary if the reload step implements the hot-reload option__
+1.  [Watching / Polling](#watching--polling)
+1.  [__Messaging__](#messaging-1)
+
+_*Note: This notify step is only necessary if the reload step implements the hot-reload option_
+
+#### Watching / Polling
+
+Similar to the DB Polling option described in the initial trigger options, some shared resource could be updated to alert all child processes of a change. While a db table could be used, it would require separate records for each server in the system since they will not all have completed the module update at the same time (which could grow indefinitely as servers are possibly swapped in/out). The simplest approach here would be to use a local file that is visible and shared by all child processes, but unique and confined to each server. Still, there is no benefit to this approach over the messaging option described below.
+
+##### Pros
+
+-   N/A
+
+##### Cons
+
+-   Delayed execution
+-   No way to know if/when each child process has seen or acknowledged the update trigger
 
 #### Messaging
 
@@ -89,22 +118,13 @@ The master process can send messages directly to each child process using the [c
 
 -   N/A
 
-#### Watching / Polling
-
-Similar to the DB Polling option described in the initial trigger options, some shared resource could be updated to alert all child processes of a change. While a db table could be used, it would require separate records for each server in the system since they will not all have completed the module update at the same time (which could grow indefinitely as servers are possibly swapped in/out). The simplest approach here would be to use a local file that is visible and shared by all child processes, but unique and confined to each server. Still, there is no benefit to this approach over the messaging option described above.
-
-##### Pros
-
--   N/A
-
-##### Cons
-
--   Delayed execution
--   No way to know if/when each child process has seen or acknowledged the update trigger
-
 ### 4. Reload Options
 
 The final step is to make the updated module code available to each in-memory process.
+
+1.  [Terminate Master Process](#terminate-master-process)
+1.  [Clear Require Cache](#clear-require-cache)
+1.  [__Cycle Child Processes__](#cycle-child-processes)
 
 #### Terminate Master Process
 
@@ -120,7 +140,7 @@ The simplest approach (and what we do now) is to terminate the master process. S
 -   Takes down the entire server for some period of time
 -   Terminates any in-flight requests, causing the initial update request to appear to fail
 
-#### Hot Reload (Clear Require Cache)
+#### Clear Require Cache
 
 It is possible to configure the server to reload dependencies at the start of each incoming request. This approach incurs a small performance penalty on each request, but provides the benefit of enabling live dependency updates by doing a cache clear in the running process.
 
