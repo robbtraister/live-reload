@@ -32,6 +32,8 @@ In order to update module code at runtime, there are several discrete steps that
 
 The current approach appears to assume only a single server, rendering Step 1 moot. Step 2 (update), as described below, is relatively straightforward. Step 4 (reload) is currently achieved by terminating the master process, thus negating the need for Step 3 (process notification).
 
+For each of the option categories, the preferred approach is in bold.
+
 ### 1. Trigger Options
 
 An update is initiated by an API call to a running server. This call may be made as a standalone HTTP request or, more generally, through the UI. The incoming HTTP request is handled by a single child process on a single server. This child process must then notify all servers to perform the update. How should this notification be propagated through the system?
